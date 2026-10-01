@@ -30,17 +30,27 @@ jobs:
           java-version: 21
       - run: npm ci
       - run: npx cap sync android
-      - name: Build APK
+      # Signed with the permanent release key (repository secrets), so each build installs over the last.
+      # EcoCredx.apk is for direct download; EcoCredx.aab is the format Google Play asks for.
+      - name: Build signed APK and Play Store bundle
         working-directory: mobile/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/ecocredx-release.jks
+          APP_BUILD_NUMBER: ${{ github.run_number }}
         run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/EcoCredx.apk"
+          ./gradlew assembleRelease bundleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/EcoCredx.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/EcoCredx.aab"
+          rm "$ANDROID_KEYSTORE_FILE"
       - name: Publish release
         working-directory: .
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "app-v1.0.${{ github.run_number }}" EcoCredx.apk \
+          gh release create "app-v1.0.${{ github.run_number }}" EcoCredx.apk EcoCredx.aab \
             --title "EcoCredx Android app 1.0.${{ github.run_number }}" \
             --notes "Install on Android: download EcoCredx.apk, open it, and allow installing from this source. The app opens the live EcoCredx site, so it always shows the latest version."

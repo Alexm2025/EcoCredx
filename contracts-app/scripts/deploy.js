@@ -7,6 +7,8 @@ import hre, { network } from "hardhat";
 
 const { ethers } = await network.getOrCreate();
 
+const PLATFORM_FEE_BPS = 200; // 2% of each sale, taken from the seller's proceeds
+
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../frontend/src/contracts");
 
 const [deployer] = await ethers.getSigners();
@@ -18,7 +20,8 @@ await credit.waitForDeployment();
 const deployBlock = (await credit.deploymentTransaction().wait()).blockNumber;
 console.log(`EcoCredit      ${await credit.getAddress()}`);
 
-const market = await ethers.deployContract("EcoMarketplace", [await credit.getAddress()]);
+// The deployer owns the marketplace and receives its fees; both can be changed later.
+const market = await ethers.deployContract("EcoMarketplace", [await credit.getAddress(), deployer.address, PLATFORM_FEE_BPS]);
 await market.waitForDeployment();
 console.log(`EcoMarketplace ${await market.getAddress()}`);
 

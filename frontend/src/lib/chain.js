@@ -21,12 +21,22 @@ export const DEPLOYMENTS = Object.fromEntries(
 export const ABIS = abis
 
 // rpcUrl: a public endpoint used to show the app read-only to visitors without a wallet
+// currency: the coin that prices and gas are paid in on that chain
 export const CHAINS = {
-  31337: { name: 'Hardhat Local', explorer: null, rpcUrl: null },
+  31337: { name: 'Hardhat Local', currency: 'ETH', testnet: true, explorer: null, rpcUrl: null },
   11155111: {
     name: 'Sepolia',
+    currency: 'ETH',
+    testnet: true,
     explorer: 'https://sepolia.etherscan.io',
     rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
+  },
+  137: {
+    name: 'Polygon',
+    currency: 'POL',
+    testnet: false,
+    explorer: 'https://polygonscan.com',
+    rpcUrl: 'https://polygon-bor-rpc.publicnode.com',
   },
 }
 

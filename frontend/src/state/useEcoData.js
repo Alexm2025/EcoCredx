@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ZeroHash, id as keccakText } from 'ethers'
 import { CREDIT_TYPES, LOCAL_CHAIN_ID } from '../lib/chain'
-import { errorMessage } from '../lib/format'
+import { errorMessage, sameAddress } from '../lib/format'
 
 const PAGE_SIZE = 100
 const REFRESH_MS = 5000
@@ -40,6 +40,7 @@ const toListing = (l) => ({
   pricePerCredit: l.pricePerCredit,
   active: l.active,
   createdAt: Number(l.createdAt),
+  feeBps: Number(l.feeBps),
 })
 
 const toRetirement = (r) => ({
@@ -59,12 +60,13 @@ async function loadSnapshot({ contracts, readProvider, account, deployment }) {
     throw new Error('The EcoCredx contracts are not deployed on this chain yet. Run the deploy script, then reload.')
   }
 
-  const [[issued, retired], activityCount, listingCount, retirementCount, blockNumber] = await Promise.all([
+  const [[issued, retired], activityCount, listingCount, retirementCount, blockNumber, platform] = await Promise.all([
     credit.supplyStats(),
     credit.activityCount(),
     market.listingCount(),
     credit.retirementCount(),
     readProvider.getBlockNumber(),
+    Promise.all([market.feeBps(), market.treasury(), market.accruedFees(), market.owner(), market.paused(), credit.paused()]),
   ])
 
   const [activities, listings, retirements, mine] = await Promise.all([
@@ -94,6 +96,15 @@ async function loadSnapshot({ contracts, readProvider, account, deployment }) {
     isAdmin: mine ? mine[2] : false,
     isVerifier: mine ? mine[3] : false,
     marketApproved: mine ? mine[4] : false,
+    isMarketOwner: sameAddress(account, platform[3]),
+    platform: {
+      feeBps: Number(platform[0]),
+      treasury: platform[1],
+      accruedFees: platform[2],
+      owner: platform[3],
+      marketPaused: platform[4],
+      creditPaused: platform[5],
+    },
   }
 }
 
@@ -111,6 +122,8 @@ const EMPTY = {
   isAdmin: false,
   isVerifier: false,
   marketApproved: false,
+  isMarketOwner: false,
+  platform: { feeBps: 0, treasury: '', accruedFees: 0n, owner: '', marketPaused: false, creditPaused: false },
 }
 
 /** Everything the UI shows, read from the chain and re-read every few seconds. */

@@ -9,7 +9,7 @@ import { useEvents } from '../state/useEvents'
 const credits = (amount, type) => `${formatCredits(amount)} ${CREDIT_TYPES[Number(type)]?.name ?? ''} credits`
 
 // Event -> { kind, text, parties } for display. Returns null for events not worth a ledger row.
-function describe({ name, args }, marketAddress) {
+function describe({ name, args, address }, marketAddress, currency) {
   switch (name) {
     case 'ActivitySubmitted':
       return { kind: 'Claim', text: `Claim #${args.id} submitted for ${credits(args.amount, args.creditType)}`, parties: [args.claimant] }
@@ -31,13 +31,24 @@ function describe({ name, args }, marketAddress) {
       return { kind: 'Role', text: `${role} role ${name === 'RoleGranted' ? 'granted' : 'revoked'}`, parties: [args.account, args.sender] }
     }
     case 'ListingCreated':
-      return { kind: 'Listed', text: `Listing #${args.id}: ${credits(args.amount, args.creditType)} at ${formatEth(args.pricePerCredit, 6)} ETH each`, parties: [args.seller] }
+      return { kind: 'Listed', text: `Listing #${args.id}: ${credits(args.amount, args.creditType)} at ${formatEth(args.pricePerCredit, 6)} ${currency} each`, parties: [args.seller] }
     case 'CreditsPurchased':
-      return { kind: 'Sale', text: `${credits(args.amount, args.creditType)} bought from listing #${args.id} for ${formatEth(args.totalPrice, 6)} ETH`, parties: [args.buyer, args.seller] }
+      return { kind: 'Sale', text: `${credits(args.amount, args.creditType)} bought from listing #${args.id} for ${formatEth(args.totalPrice, 6)} ${currency}`, parties: [args.buyer, args.seller] }
     case 'ListingCancelled':
       return { kind: 'Cancelled', text: `Listing #${args.id} cancelled — ${formatCredits(args.amountReturned)} credits returned`, parties: [args.seller] }
     case 'ListingPriceUpdated':
-      return { kind: 'Price', text: `Listing #${args.id} repriced to ${formatEth(args.pricePerCredit, 6)} ETH each`, parties: [] }
+      return { kind: 'Price', text: `Listing #${args.id} repriced to ${formatEth(args.pricePerCredit, 6)} ${currency} each`, parties: [] }
+    case 'FeeUpdated':
+      return { kind: 'Platform', text: `Platform fee set to ${Number(args.feeBps) / 100}%`, parties: [] }
+    case 'TreasuryUpdated':
+      return { kind: 'Platform', text: 'Fee payout address changed', parties: [args.treasury] }
+    case 'FeesWithdrawn':
+      return { kind: 'Platform', text: `${formatEth(args.amount, 6)} ${currency} of platform fees withdrawn`, parties: [args.treasury] }
+    case 'Paused':
+    case 'Unpaused': {
+      const what = sameAddress(address, marketAddress) ? 'Marketplace' : 'Credit activity'
+      return { kind: 'Platform', text: `${what} ${name === 'Paused' ? 'paused' : 'resumed'}`, parties: [args.account] }
+    }
     default:
       return null
   }
@@ -49,7 +60,7 @@ export function Ledger() {
   const [onlyMine, setOnlyMine] = useState(false)
 
   const rows = events.logs
-    .map((log) => ({ log, info: describe(log, wallet.deployment?.EcoMarketplace) }))
+    .map((log) => ({ log, info: describe(log, wallet.deployment?.EcoMarketplace, wallet.currency) }))
     .filter(({ info }) => info && (!onlyMine || info.parties.some((p) => sameAddress(p, wallet.account))))
     .reverse()
 

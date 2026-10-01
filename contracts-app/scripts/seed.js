@@ -12,6 +12,12 @@ import { network } from "hardhat";
 const { ethers } = await network.getOrCreate();
 
 const { chainId } = await ethers.provider.getNetwork();
+
+// Demo data is invented. It must never be written to a chain where credits are real.
+if ([1n, 137n].includes(chainId)) {
+  console.error("Refusing to seed demo data on a main network.");
+  process.exit(1);
+}
 const deploymentFile = new URL(`../../frontend/src/contracts/deployments/${chainId}.json`, import.meta.url);
 const deployment = JSON.parse(await readFile(fileURLToPath(deploymentFile), "utf8"));
 
@@ -39,9 +45,8 @@ if (isLocal) {
 
   const gasMoney = [[greenGrid, "0.004"], [riverTrust, "0.004"], [buyer, "0.007"]];
   for (const [wallet, eth] of gasMoney) {
-    if ((await ethers.provider.getBalance(wallet.address)) < ethers.parseEther(eth)) {
-      await send(admin.sendTransaction({ to: wallet.address, value: ethers.parseEther(eth) }));
-    }
+    const shortfall = ethers.parseEther(eth) - (await ethers.provider.getBalance(wallet.address));
+    if (shortfall > 0n) await send(admin.sendTransaction({ to: wallet.address, value: shortfall }));
   }
 }
 

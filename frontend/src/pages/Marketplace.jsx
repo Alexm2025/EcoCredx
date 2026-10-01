@@ -14,12 +14,17 @@ function parsePrice(text) {
   }
 }
 
+// What the seller keeps after the platform fee (fee is in basis points: 100 = 1%)
+const afterFee = (wei, feeBps) => wei - (wei * BigInt(feeBps)) / 10_000n
+
 function ListingCard({ listing }) {
-  const { wallet, runTx } = useApp()
+  const { wallet, data, runTx } = useApp()
   const [quantity, setQuantity] = useState('1')
   const [newPrice, setNewPrice] = useState('')
   const [busy, setBusy] = useState(false)
   const mine = sameAddress(listing.seller, wallet.account)
+  const paused = data.platform.marketPaused
+  const { currency } = wallet
 
   const amount = parseAmount(quantity)
   const validAmount = amount !== null && amount <= listing.amount
@@ -52,7 +57,7 @@ function ListingCard({ listing }) {
         <span className="muted small">#{listing.id}</span>
       </header>
       <p className="listing-price">
-        {formatEth(listing.pricePerCredit, 6)} <span className="unit">ETH / credit</span>
+        {formatEth(listing.pricePerCredit, 6)} <span className="unit">{currency} / credit</span>
       </p>
       <p className="listing-meta">
         <strong>{formatCredits(listing.amount)}</strong> available
@@ -65,13 +70,17 @@ function ListingCard({ listing }) {
         <p className="muted small">Connect a wallet to buy.</p>
       ) : mine ? (
         <div className="listing-actions">
+          <span className="muted small">
+            You receive {formatEth(afterFee(listing.pricePerCredit, listing.feeBps), 6)} {currency} per credit after the{' '}
+            {listing.feeBps / 100}% fee.
+          </span>
           <div className="inline">
             <input
               value={newPrice}
               onChange={(e) => setNewPrice(e.target.value)}
-              placeholder="New price (ETH)"
+              placeholder={`New price (${currency})`}
               inputMode="decimal"
-              aria-label="New price in ETH"
+              aria-label={`New price in ${currency}`}
             />
             <button type="button" className="btn" disabled={busy || !price} onClick={updatePrice}>
               Update
@@ -90,12 +99,16 @@ function ListingCard({ listing }) {
               inputMode="numeric"
               aria-label="Credits to buy"
             />
-            <button type="button" className="btn primary" disabled={busy || !validAmount} onClick={buy}>
+            <button type="button" className="btn primary" disabled={busy || paused || !validAmount} onClick={buy}>
               Buy
             </button>
           </div>
           <span className="muted small">
-            {validAmount ? `Total ${formatEth(total, 6)} ETH` : `Enter 1 – ${formatCredits(listing.amount)}`}
+            {paused
+              ? 'Purchases are paused.'
+              : validAmount
+                ? `Total ${formatEth(total, 6)} ${currency}`
+                : `Enter 1 – ${formatCredits(listing.amount)}`}
           </span>
         </div>
       )}
@@ -109,11 +122,13 @@ function SellForm() {
   const [amountText, setAmountText] = useState('')
   const [priceText, setPriceText] = useState('')
   const [busy, setBusy] = useState(false)
+  const { currency } = wallet
+  const { feeBps, marketPaused } = data.platform
 
   const amount = parseAmount(amountText)
   const price = parsePrice(priceText)
   const enough = amount !== null && amount <= data.balances[type]
-  const canSubmit = enough && price !== null && !busy
+  const canSubmit = enough && price !== null && !busy && !marketPaused
 
   const submit = async (e) => {
     e.preventDefault()
@@ -143,16 +158,27 @@ function SellForm() {
       <Field label="Credits to sell" hint={amount !== null && !enough ? 'More than you hold.' : null}>
         <input value={amountText} onChange={(e) => setAmountText(e.target.value)} inputMode="numeric" placeholder="e.g. 50" />
       </Field>
-      <Field label="Price per credit (ETH)">
+      <Field
+        label={`Price per credit (${currency})`}
+        hint={
+          price !== null
+            ? `You receive ${formatEth(afterFee(price, feeBps), 6)} ${currency} per credit after the ${feeBps / 100}% platform fee.`
+            : `A ${feeBps / 100}% platform fee is deducted from each sale.`
+        }
+      >
         <input value={priceText} onChange={(e) => setPriceText(e.target.value)} inputMode="decimal" placeholder="e.g. 0.01" />
       </Field>
       <button type="submit" className="btn primary" disabled={!canSubmit}>
         {data.marketApproved ? 'List for sale' : 'Approve & list for sale'}
       </button>
-      {!data.marketApproved && (
-        <p className="muted small">
-          First time selling needs two confirmations: one to let the marketplace escrow your credits, one to create the listing.
-        </p>
+      {marketPaused ? (
+        <p className="muted small">New listings are paused.</p>
+      ) : (
+        !data.marketApproved && (
+          <p className="muted small">
+            First time selling needs two confirmations: one to let the marketplace escrow your credits, one to create the listing.
+          </p>
+        )
       )}
     </form>
   )

@@ -1,6 +1,6 @@
 # EcoCredx
 
-Blockchain-based environmental credit marketplace — Group 24 mini project.
+Blockchain-based environmental credit marketplace.
 
 **Live site: https://alexm2025.github.io/EcoCredx/** (Sepolia test network)
 
@@ -82,7 +82,7 @@ A walkthrough that shows every feature:
 | Contract | What it does |
 |---|---|
 | `EcoCredit.sol` | ERC-1155 token. Each token id is a credit type: Carbon (0), Water (1), Renewable Energy (2), Waste (3), Biodiversity (4). Holds the claim → verify → mint flow, retirement, and roles. |
-| `EcoMarketplace.sol` | Listings priced in ETH. Listed credits are held in escrow by the contract; payment goes straight to the seller. |
+| `EcoMarketplace.sol` | Listings priced in the network's currency. Listed credits are held in escrow by the contract; payment goes to the seller minus the platform fee. |
 
 Rules the contracts enforce:
 
@@ -92,6 +92,8 @@ Rules the contracts enforce:
 - A verifier may approve fewer credits than were claimed, never more.
 - Retired credits are burned, so they cannot be sold or retired a second time.
 - Listed credits are locked in escrow, so the same credits cannot be listed twice.
+- The platform fee can never exceed 10%, and a listing keeps the fee it was created with.
+- A pause stops activity but never moves or removes anyone's credits.
 
 ## Tests
 
@@ -136,6 +138,51 @@ What visitors get:
 - With MetaMask on Sepolia and a little test ETH: they can claim, buy, sell and retire.
 - The one-click demo accounts exist only on your own machine.
 
+## Running it as a business
+
+**How it earns.** The marketplace keeps a platform fee from each sale. The buyer pays the listed
+price; the seller receives it minus the fee. The fee starts at 2%, is locked into a listing when
+it is created, and can never exceed 10%. Collected fees build up in the contract until the owner
+withdraws them to the payout address.
+
+**Owner controls** (Admin tab, visible only to the admin wallet):
+
+| Control | What it does |
+|---|---|
+| Appoint / remove verifiers | Decides who may approve claims. |
+| Set fee | Changes the fee for listings created from then on (0–10%). |
+| Withdraw fees | Sends collected fees to the payout address. |
+| Set payout address | Changes where fees go. |
+| Pause marketplace | Stops new listings and purchases. Sellers can still cancel. |
+| Pause all credit activity | Freezes claims, minting, transfers and retirement. |
+
+The owner cannot mint credits, move anyone's credits, or take escrowed credits.
+
+### Before taking real money
+
+The public site runs on a test network with invented demo data, and says so on every page. The
+software is ready to be pointed at a real network, but these steps are not code and have to be
+done by the people running the business:
+
+1. **Security audit.** Have an independent firm audit `EcoCredit.sol` and `EcoMarketplace.sol`.
+   They have automated tests but no third-party review.
+2. **Legal.** Register the business and get advice on how environmental credits and crypto
+   payments are regulated and taxed where you operate (in India this includes the tax rules for
+   virtual digital assets, and KYC / anti-money-laundering duties). Have a lawyer review the
+   terms and risk notices on the About page.
+3. **Real verifiers.** Credits are only as good as the people approving them. Sign up accredited
+   verification bodies and publish who they are and what standard they apply.
+4. **Safer admin keys.** Move the admin role and marketplace ownership from a single wallet to a
+   multi-signature wallet (for example Safe), so one stolen key cannot pause the platform or
+   redirect fees.
+5. **Launch on a real network.** Create a dedicated wallet, fund it, put its key and an RPC URL in
+   `contracts-app/.env` (`POLYGON_PRIVATE_KEY`, `POLYGON_RPC_URL`), and run
+   `npm run deploy:polygon`. Do **not** run the seed script there (it refuses to). Commit the new
+   file in `frontend/src/contracts/deployments/` and push; the site then shows the real network
+   by default.
+6. **Distribution.** A custom domain, and a Google Play developer account to publish the
+   `EcoCredx.aab` bundle that the Android workflow builds.
+
 ## Mobile app
 
 The Android app is a thin wrapper around the live site, so it always shows the latest published
@@ -148,8 +195,12 @@ version and never needs rebuilding for website changes.
   phone, open the site inside the MetaMask app's built-in browser instead.
 - **No download needed:** on Android or iPhone, open the site in the browser and choose
   "Add to Home screen" / "Install app".
-- **Rebuilding:** `.github/workflows/android.yml` builds a new APK and publishes it as a GitHub
-  Release whenever something under `mobile/` changes, or when run by hand from the Actions tab.
+- **Rebuilding:** `.github/workflows/android.yml` builds a signed APK (and an `.aab` bundle for
+  Google Play) and publishes them as a GitHub Release whenever something under `mobile/` changes,
+  or when run by hand from the Actions tab.
+- **Signing key:** `mobile/ecocredx-release.jks` and `mobile/keystore.properties` exist only on the
+  computer that created them (and as GitHub secrets). Back them up somewhere safe: without them
+  no update to the published app can be released.
 
 ## Troubleshooting
 

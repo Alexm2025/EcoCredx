@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import {ERC1155Pausable} from "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Pausable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
@@ -18,8 +19,15 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
  * Double counting is prevented in two places: the same evidence fingerprint can
  * never back two live claims, and retired credits are burned so they cannot be
  * sold or retired again.
+ *
+ * In an emergency the admin can pause the contract, which freezes new claims,
+ * minting, transfers and retirements until it is unpaused. Pausing never moves
+ * or destroys credits.
  */
-contract EcoCredit is ERC1155, AccessControl {
+contract EcoCredit is ERC1155Pausable, AccessControl {
+    string public constant name = "EcoCredx Environmental Credit";
+    string public constant symbol = "ECOX";
+
     bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
 
     uint256 public constant CARBON = 0;
@@ -108,7 +116,7 @@ contract EcoCredit is ERC1155, AccessControl {
         bytes32 evidenceHash,
         string calldata description,
         string calldata evidenceURI
-    ) external returns (uint256 id) {
+    ) external whenNotPaused returns (uint256 id) {
         require(creditType < CREDIT_TYPE_COUNT, "EcoCredit: unknown credit type");
         require(amount > 0, "EcoCredit: amount is zero");
         require(evidenceHash != bytes32(0), "EcoCredit: evidence required");
@@ -197,6 +205,17 @@ contract EcoCredit is ERC1155, AccessControl {
         );
 
         emit CreditsRetired(id, msg.sender, creditType, amount, reason);
+    }
+
+    // ------------------------------------------------------------------ admin
+
+    /// @notice Freeze claims, minting, transfers and retirements.
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
     }
 
     // ------------------------------------------------------------------ views

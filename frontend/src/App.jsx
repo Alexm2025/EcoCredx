@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from 'react'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Header, Toasts } from './components/Header'
-import { DEPLOYMENTS, IS_LOCAL_PAGE, LOCAL_RPC_URL, chainName } from './lib/chain'
+import { CHAINS, DEPLOYMENTS, IS_LOCAL_PAGE, LOCAL_RPC_URL, chainName } from './lib/chain'
 import { errorMessage } from './lib/format'
+import { About } from './pages/About'
 import { Admin } from './pages/Admin'
 import { Dashboard } from './pages/Dashboard'
 import { Earn } from './pages/Earn'
@@ -19,6 +21,7 @@ const PAGES = {
   ledger: Ledger,
   verify: Verify,
   admin: Admin,
+  about: About,
 }
 
 function Notice({ title, children }) {
@@ -95,6 +98,34 @@ function Blocker() {
   return null
 }
 
+// Standing notices above every page: test-network warning and emergency pauses.
+function Banners() {
+  const { wallet, data } = useApp()
+  const { platform } = data
+
+  return (
+    <>
+      {CHAINS[wallet.chainId]?.testnet && (
+        <p className="banner">
+          <strong>Test network.</strong> Everything here runs on {chainName(wallet.chainId)} for demonstration. Credits,
+          claims and prices have no real-world value.
+        </p>
+      )}
+      {platform.creditPaused && (
+        <p className="banner alert">
+          <strong>Paused.</strong> The platform admin has temporarily frozen claims, transfers and retirements.
+        </p>
+      )}
+      {platform.marketPaused && (
+        <p className="banner alert">
+          <strong>Marketplace paused.</strong> New listings and purchases are temporarily disabled. Sellers can still
+          cancel their listings.
+        </p>
+      )}
+    </>
+  )
+}
+
 // The open tab lives in the URL hash, so links, reloads and the back button all work
 const onHashChange = (callback) => {
   window.addEventListener('hashchange', callback)
@@ -122,7 +153,8 @@ export default function App() {
     { id: 'wallet', label: 'My wallet' },
     { id: 'ledger', label: 'Ledger' },
     data.isVerifier && { id: 'verify', label: 'Verify', count: pending },
-    data.isAdmin && { id: 'admin', label: 'Admin' },
+    (data.isAdmin || data.isMarketOwner) && { id: 'admin', label: 'Admin' },
+    { id: 'about', label: 'About' },
   ].filter(Boolean)
 
   const blocked = !wallet.ready || !wallet.deployment || data.status !== 'ready'
@@ -133,10 +165,23 @@ export default function App() {
   return (
     <>
       <Header tabs={tabs} tab={current} />
-      <main className="main">{blocked ? <Blocker /> : <Page />}</main>
+      <main className="main">
+        {blocked ? (
+          <Blocker />
+        ) : (
+          <>
+            <Banners />
+            <ErrorBoundary key={current}>
+              <Page />
+            </ErrorBoundary>
+          </>
+        )}
+      </main>
       <footer className="footer">
-        EcoCredx · Blockchain-Based Environmental Credit Marketplace · Group 24
+        EcoCredx · Blockchain-Based Environmental Credit Marketplace
         {data.blockNumber > 0 && <span> · block {data.blockNumber}</span>}
+        {' · '}
+        <a href="#about">About &amp; terms</a>
         {!IN_ANDROID_APP && (
           <span>
             {' · '}

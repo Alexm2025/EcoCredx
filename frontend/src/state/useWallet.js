@@ -45,7 +45,9 @@ async function probeLocalNode() {
 
 // Read-only connection to a public chain the contracts are deployed on, for visitors without a wallet.
 function publicReader() {
-  const deployment = Object.values(DEPLOYMENTS).find((d) => CHAINS[d.chainId]?.rpcUrl)
+  // a main-network deployment, once there is one, is what visitors should see
+  const candidates = Object.values(DEPLOYMENTS).filter((d) => CHAINS[d.chainId]?.rpcUrl)
+  const deployment = candidates.find((d) => !CHAINS[d.chainId].testnet) ?? candidates[0]
   if (!deployment) return null
   const provider = new JsonRpcProvider(CHAINS[deployment.chainId].rpcUrl, deployment.chainId, { staticNetwork: true })
   return { provider, accounts: [], chainId: deployment.chainId }
@@ -178,6 +180,7 @@ export function useWallet() {
     mode: session?.mode ?? null,
     account: session?.account ?? null,
     chainId,
+    currency: CHAINS[chainId]?.currency ?? 'ETH',
     readProvider,
     deployment,
     contracts,

@@ -6,6 +6,10 @@ import { useApp } from '../state/context'
 // Who the local node's accounts are once scripts/seed.js has run
 const DEMO_LABELS = ['Admin', 'Verifier', 'GreenGrid Energy', 'River Trust', 'Buyer']
 
+// Phones have no wallet extension; this link reopens the site inside the MetaMask app's browser
+const IS_MOBILE = /Android|iPhone|iPad/i.test(navigator.userAgent)
+const METAMASK_APP_LINK = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`
+
 function WalletMenu() {
   const { wallet, data, showToast } = useApp()
   const [open, setOpen] = useState(false)
@@ -26,7 +30,7 @@ function WalletMenu() {
         {wallet.account ? (
           <>
             <span className="mono">{shortAddress(wallet.account)}</span>
-            <span className="muted">{formatEth(data.ethBalance, 3)} ETH</span>
+            <span className="muted">{formatEth(data.ethBalance, 3)} {wallet.currency}</span>
           </>
         ) : (
           'Connect wallet'
@@ -44,7 +48,15 @@ function WalletMenu() {
               </button>
             ) : (
               <p className="popover-note">
-                Not installed. Get it from <a href="https://metamask.io" target="_blank" rel="noreferrer">metamask.io</a>.
+                {IS_MOBILE ? (
+                  <>
+                    To claim, buy or retire from a phone, <a href={METAMASK_APP_LINK}>open EcoCredx in the MetaMask app</a>.
+                  </>
+                ) : (
+                  <>
+                    Not installed. Get it from <a href="https://metamask.io" target="_blank" rel="noreferrer">metamask.io</a>.
+                  </>
+                )}
               </p>
             )}
 

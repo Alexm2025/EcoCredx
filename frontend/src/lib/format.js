@@ -26,13 +26,15 @@ const FRIENDLY_ERRORS = {
   ERC1155MissingApprovalForAll: 'The marketplace is not approved to move your credits yet.',
   ERC1155InvalidReceiver: 'That address cannot receive credits.',
   AccessControlUnauthorizedAccount: 'This account does not have permission to do that.',
+  OwnableUnauthorizedAccount: 'Only the marketplace owner can do that.',
+  EnforcedPause: 'This is paused by the platform admin right now. Please try again later.',
 }
 
 // Turns an ethers / wallet error into one readable sentence.
 export function errorMessage(err) {
   if (!err) return 'Something went wrong.'
   if (err.code === 'ACTION_REJECTED' || err.code === 4001) return 'Transaction cancelled in wallet.'
-  if (err.code === 'INSUFFICIENT_FUNDS') return 'Not enough ETH to pay for this transaction.'
+  if (err.code === 'INSUFFICIENT_FUNDS') return 'Not enough funds in your wallet to pay for this transaction.'
   if (err.revert?.name && FRIENDLY_ERRORS[err.revert.name]) return FRIENDLY_ERRORS[err.revert.name]
 
   const raw =
@@ -42,6 +44,10 @@ export function errorMessage(err) {
     err.shortMessage ||
     err.message ||
     String(err)
+
+  // some nodes report a custom error only as text: "reverted with custom error 'EnforcedPause()'"
+  const custom = raw.match(/custom error '(\w+)\(/)
+  if (custom) return FRIENDLY_ERRORS[custom[1]] ?? 'The contract refused this action.'
 
   const quoted = raw.match(/reason string '([^']+)'/)
   const text = (quoted ? quoted[1] : raw).replace(/^(EcoCredit|EcoMarketplace): /, '')

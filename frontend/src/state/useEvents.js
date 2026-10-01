@@ -36,6 +36,7 @@ export function useEvents() {
           logs: logs.map((log) => ({
             name: log.eventName,
             args: log.args,
+            address: log.address,
             blockNumber: log.blockNumber,
             index: log.index,
             txHash: log.transactionHash,

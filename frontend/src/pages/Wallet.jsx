@@ -116,7 +116,7 @@ export function Wallet() {
       <section>
         <h1>My wallet</h1>
         <p className="lead">
-          <span className="mono">{wallet.account}</span> · {formatEth(data.ethBalance)} ETH
+          <span className="mono">{wallet.account}</span> · {formatEth(data.ethBalance)} {wallet.currency}
         </p>
         <div className="grid balances">
           {CREDIT_TYPES.map((t) => (

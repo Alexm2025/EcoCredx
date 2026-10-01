@@ -987,3 +987,40 @@ tbody tr:last-child td {
     flex-wrap: wrap;
   }
 }
+
+/* --------------------------------------------------------------- notices */
+
+.banner {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--warning);
+  background: var(--surface);
+  font-size: 0.9rem;
+}
+
+.banner.alert {
+  border-left-color: var(--critical);
+}
+
+.prose ul {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prose p,
+.prose li {
+  color: var(--text-2);
+}
+
+.card > .btn,
+.card > .form {
+  align-self: flex-start;
+}
+
+.card > .form {
+  width: 100%;
+}

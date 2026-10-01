@@ -11,12 +11,14 @@ const REJECTED = 2n;
 
 const evidence = (text) => ethers.id(text);
 const price = ethers.parseEther("0.01");
+const FEE_BPS = 200n; // 2%
+const feeOf = (total) => (total * FEE_BPS) / 10_000n;
 
 async function deployFixture() {
   const [admin, verifier, alice, bob, carol] = await ethers.getSigners();
 
   const credit = await ethers.deployContract("EcoCredit", [admin.address]);
-  const market = await ethers.deployContract("EcoMarketplace", [await credit.getAddress()]);
+  const market = await ethers.deployContract("EcoMarketplace", [await credit.getAddress(), admin.address, FEE_BPS]);
 
   await credit.grantRole(await credit.VERIFIER_ROLE(), verifier.address);
 
@@ -254,15 +256,20 @@ describe("EcoMarketplace", function () {
     await expect(market.connect(alice).createListing(CARBON, 1, 0)).to.be.revertedWith("EcoMarketplace: price is zero");
   });
 
-  it("sells part of a listing and pays the seller directly", async function () {
+  it("sells part of a listing, pays the seller and keeps the platform fee", async function () {
     const { credit, market, alice, bob } = await networkHelpers.loadFixture(fundedFixture);
     await market.connect(alice).createListing(CARBON, 60, price);
 
     const buyTx = market.connect(bob).buy(0, 25, { value: price * 25n });
     await expect(buyTx)
       .to.emit(market, "CreditsPurchased")
-      .withArgs(0, bob.address, alice.address, CARBON, 25, price * 25n);
-    await expect(buyTx).to.changeEtherBalances(ethers, [alice, market], [price * 25n, 0n]);
+      .withArgs(0, bob.address, alice.address, CARBON, 25, price * 25n, feeOf(price * 25n));
+    await expect(buyTx).to.changeEtherBalances(
+      ethers,
+      [bob, alice, market],
+      [-(price * 25n), price * 25n - feeOf(price * 25n), feeOf(price * 25n)],
+    );
+    expect(await market.accruedFees()).to.equal(feeOf(price * 25n));
 
     expect(await credit.balanceOf(bob.address, CARBON)).to.equal(25n);
     const listing = await market.getListing(0);
@@ -344,5 +351,128 @@ describe("EcoMarketplace", function () {
       credit,
       "ERC1155InsufficientBalance",
     );
+  });
+});
+
+describe("Platform fee and controls", function () {
+  it("starts with the deployer as owner and treasury", async function () {
+    const { market, admin } = await networkHelpers.loadFixture(deployFixture);
+
+    expect(await market.owner()).to.equal(admin.address);
+    expect(await market.treasury()).to.equal(admin.address);
+    expect(await market.feeBps()).to.equal(FEE_BPS);
+  });
+
+  it("only lets the owner change the fee, and never above the cap", async function () {
+    const { market, alice } = await networkHelpers.loadFixture(deployFixture);
+
+    await expect(market.connect(alice).setFee(100)).to.be.revertedWithCustomError(market, "OwnableUnauthorizedAccount");
+    await expect(market.setFee(1001)).to.be.revertedWith("EcoMarketplace: fee too high");
+    await expect(market.setFee(500)).to.emit(market, "FeeUpdated").withArgs(500);
+    expect(await market.feeBps()).to.equal(500n);
+  });
+
+  it("keeps the fee a listing was created with", async function () {
+    const { market, alice, bob } = await networkHelpers.loadFixture(fundedFixture);
+    await market.connect(alice).createListing(CARBON, 10, price);
+    await market.setFee(1000);
+    await market.connect(alice).createListing(CARBON, 10, price);
+
+    await expect(market.connect(bob).buy(0, 10, { value: price * 10n })).to.changeEtherBalances(
+      ethers,
+      [alice],
+      [(price * 10n * 98n) / 100n],
+    );
+    await expect(market.connect(bob).buy(1, 10, { value: price * 10n })).to.changeEtherBalances(
+      ethers,
+      [alice],
+      [(price * 10n * 90n) / 100n],
+    );
+  });
+
+  it("charges nothing when the fee is zero", async function () {
+    const { market, alice, bob } = await networkHelpers.loadFixture(fundedFixture);
+    await market.setFee(0);
+    await market.connect(alice).createListing(CARBON, 10, price);
+
+    await expect(market.connect(bob).buy(0, 10, { value: price * 10n })).to.changeEtherBalances(
+      ethers,
+      [alice, market],
+      [price * 10n, 0n],
+    );
+  });
+
+  it("sends collected fees to the treasury", async function () {
+    const { market, alice, bob, carol } = await networkHelpers.loadFixture(fundedFixture);
+    await market.connect(alice).createListing(CARBON, 50, price);
+    await market.connect(bob).buy(0, 50, { value: price * 50n });
+    const fees = feeOf(price * 50n);
+
+    await expect(market.connect(alice).withdrawFees()).to.be.revertedWithCustomError(market, "OwnableUnauthorizedAccount");
+    await expect(market.setTreasury(ethers.ZeroAddress)).to.be.revertedWith("EcoMarketplace: treasury is zero address");
+    await market.setTreasury(carol.address);
+
+    const withdrawal = market.withdrawFees();
+    await expect(withdrawal).to.emit(market, "FeesWithdrawn").withArgs(carol.address, fees);
+    await expect(withdrawal).to.changeEtherBalances(ethers, [carol, market], [fees, -fees]);
+    expect(await market.accruedFees()).to.equal(0n);
+    await expect(market.withdrawFees()).to.be.revertedWith("EcoMarketplace: no fees to withdraw");
+  });
+
+  it("hands over ownership in two steps", async function () {
+    const { market, admin, alice } = await networkHelpers.loadFixture(deployFixture);
+
+    await market.transferOwnership(alice.address);
+    expect(await market.owner()).to.equal(admin.address);
+    await market.connect(alice).acceptOwnership();
+    expect(await market.owner()).to.equal(alice.address);
+  });
+
+  it("pausing the marketplace stops trading but not cancelling", async function () {
+    const { credit, market, alice, bob } = await networkHelpers.loadFixture(fundedFixture);
+    await market.connect(alice).createListing(CARBON, 10, price);
+
+    await expect(market.connect(alice).pause()).to.be.revertedWithCustomError(market, "OwnableUnauthorizedAccount");
+    await market.pause();
+
+    await expect(market.connect(bob).buy(0, 1, { value: price })).to.be.revertedWithCustomError(market, "EnforcedPause");
+    await expect(market.connect(alice).createListing(CARBON, 1, price)).to.be.revertedWithCustomError(
+      market,
+      "EnforcedPause",
+    );
+    await market.connect(alice).cancelListing(0);
+    expect(await credit.balanceOf(alice.address, CARBON)).to.equal(100n);
+
+    await market.unpause();
+    await market.connect(alice).createListing(CARBON, 1, price);
+  });
+
+  it("pausing the credit token freezes claims, minting, transfers and retirement", async function () {
+    const { credit, verifier, alice, bob } = await networkHelpers.loadFixture(fundedFixture);
+    await credit.connect(bob).submitActivity(WATER, 5, evidence("pending"), "Pending claim", "");
+
+    await expect(credit.connect(alice).pause()).to.be.revertedWithCustomError(credit, "AccessControlUnauthorizedAccount");
+    await credit.pause();
+
+    await expect(
+      credit.connect(alice).submitActivity(CARBON, 1, evidence("new"), "New", ""),
+    ).to.be.revertedWithCustomError(credit, "EnforcedPause");
+    await expect(credit.connect(verifier).approveActivity(1, 5, "")).to.be.revertedWithCustomError(credit, "EnforcedPause");
+    await expect(
+      credit.connect(alice).safeTransferFrom(alice.address, bob.address, CARBON, 1, "0x"),
+    ).to.be.revertedWithCustomError(credit, "EnforcedPause");
+    await expect(credit.connect(alice).retire(CARBON, 1, "")).to.be.revertedWithCustomError(credit, "EnforcedPause");
+    expect(await credit.balanceOf(alice.address, CARBON)).to.equal(100n);
+
+    await credit.unpause();
+    await credit.connect(verifier).approveActivity(1, 5, "");
+    await credit.connect(alice).retire(CARBON, 1, "");
+  });
+
+  it("exposes a name and symbol for wallets and explorers", async function () {
+    const { credit } = await networkHelpers.loadFixture(deployFixture);
+
+    expect(await credit.name()).to.equal("EcoCredx Environmental Credit");
+    expect(await credit.symbol()).to.equal("ECOX");
   });
 });
