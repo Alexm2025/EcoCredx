@@ -1,0 +1,9 @@
+{
+  "appId": "io.github.alexm2025.ecocredx",
+  "appName": "EcoCredx",
+  "webDir": "www",
+  "server": {
+    "url": "https://alexm2025.github.io/EcoCredx/",
+    "cleartext": false
+  }
+}

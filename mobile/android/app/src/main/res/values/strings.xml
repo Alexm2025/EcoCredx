@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">EcoCredx</string>
+    <string name="title_activity_main">EcoCredx</string>
+    <string name="package_name">io.github.alexm2025.ecocredx</string>
+    <string name="custom_url_scheme">io.github.alexm2025.ecocredx</string>
+</resources>

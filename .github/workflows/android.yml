@@ -1,0 +1,46 @@
+# Builds the Android app (a wrapper that opens the hosted site) and attaches the APK to a GitHub Release.
+# Runs when anything under mobile/ changes, or manually from the Actions tab.
+name: Build Android app
+
+on:
+  push:
+    branches: [main]
+    paths: ['mobile/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npx cap sync android
+      - name: Build APK
+        working-directory: mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/EcoCredx.apk"
+      - name: Publish release
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "app-v1.0.${{ github.run_number }}" EcoCredx.apk \
+            --title "EcoCredx Android app 1.0.${{ github.run_number }}" \
+            --notes "Install on Android: download EcoCredx.apk, open it, and allow installing from this source. The app opens the live EcoCredx site, so it always shows the latest version."

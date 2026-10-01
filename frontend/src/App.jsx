@@ -101,6 +101,10 @@ const onHashChange = (callback) => {
   return () => window.removeEventListener('hashchange', callback)
 }
 
+const APK_URL = 'https://github.com/Alexm2025/EcoCredx/releases/latest/download/EcoCredx.apk'
+// Android WebViews (the app itself) identify with 'wv' in the user agent
+const IN_ANDROID_APP = /; wv[)]/.test(navigator.userAgent)
+
 const tabFromHash = () => {
   const id = window.location.hash.slice(1)
   return id in PAGES ? id : 'dashboard'
@@ -133,6 +137,12 @@ export default function App() {
       <footer className="footer">
         EcoCredx · Blockchain-Based Environmental Credit Marketplace · Group 24
         {data.blockNumber > 0 && <span> · block {data.blockNumber}</span>}
+        {!IN_ANDROID_APP && (
+          <span>
+            {' · '}
+            <a href={APK_URL}>Get the Android app</a>
+          </span>
+        )}
       </footer>
       <Toasts />
     </>
