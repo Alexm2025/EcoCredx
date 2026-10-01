@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://alexm2025.github.io/EcoCredx/sitemap.xml

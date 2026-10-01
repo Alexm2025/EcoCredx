@@ -2,6 +2,8 @@
 
 Blockchain-based environmental credit marketplace — Group 24 mini project.
 
+**Live site: https://alexm2025.github.io/EcoCredx/** (Sepolia test network)
+
 People earn credits for verified eco-friendly work, trade them peer-to-peer, and retire them to
 offset their footprint. Every claim, approval, sale and retirement is recorded on-chain.
 
@@ -106,6 +108,7 @@ test network (free, no real money) and GitHub Pages.
    the private key of a throwaway wallet. Never use a wallet that holds real funds.
 2. Send that wallet about 0.05 Sepolia ETH from a faucet (search "Sepolia faucet").
 3. `cd contracts-app` and run `npm run deploy:sepolia`.
+4. Optional: `npm run seed:sepolia` adds the demo claims and listings (takes a few minutes).
 
 This writes `frontend/src/contracts/deployments/11155111.json`, which is how the website finds
 the contracts. The wallet that deployed is the admin of the hosted app.
