@@ -4,13 +4,16 @@ Blockchain-based environmental credit marketplace — Group 24 mini project.
 
 **Live site: https://alexm2025.github.io/EcoCredx/** (Sepolia test network)
 
+**Android app:** [download EcoCredx.apk](https://github.com/Alexm2025/EcoCredx/releases/latest/download/EcoCredx.apk)
+
 People earn credits for verified eco-friendly work, trade them peer-to-peer, and retire them to
 offset their footprint. Every claim, approval, sale and retirement is recorded on-chain.
 
 ```
 EcoCredx/
 ├── contracts-app/     Solidity contracts, tests, deploy + seed scripts (Hardhat 3)
-└── frontend/          React app (Vite + ethers v6)
+├── frontend/          React app (Vite + ethers v6)
+└── mobile/            Android wrapper that opens the live site as an app (Capacitor)
 ```
 
 ## Run it locally
@@ -132,6 +135,21 @@ What visitors get:
 - Without a wallet: everything is visible, read-only (dashboard, marketplace, ledger).
 - With MetaMask on Sepolia and a little test ETH: they can claim, buy, sell and retire.
 - The one-click demo accounts exist only on your own machine.
+
+## Mobile app
+
+The Android app is a thin wrapper around the live site, so it always shows the latest published
+version and never needs rebuilding for website changes.
+
+- **Install:** download `EcoCredx.apk` from the link at the top (or the footer of the site), open it
+  on the phone, and allow installing from that source when Android asks.
+- **What it can do:** everything a visitor without a wallet can do: view the dashboard,
+  marketplace and ledger. Phones have no MetaMask extension, so to claim, buy or retire from a
+  phone, open the site inside the MetaMask app's built-in browser instead.
+- **No download needed:** on Android or iPhone, open the site in the browser and choose
+  "Add to Home screen" / "Install app".
+- **Rebuilding:** `.github/workflows/android.yml` builds a new APK and publishes it as a GitHub
+  Release whenever something under `mobile/` changes, or when run by hand from the Actions tab.
 
 ## Troubleshooting
 
