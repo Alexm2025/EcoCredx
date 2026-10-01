@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { Header, Toasts } from './components/Header'
-import { DEPLOYMENTS, LOCAL_RPC_URL, chainName } from './lib/chain'
+import { DEPLOYMENTS, IS_LOCAL_PAGE, LOCAL_RPC_URL, chainName } from './lib/chain'
 import { errorMessage } from './lib/format'
 import { Admin } from './pages/Admin'
 import { Dashboard } from './pages/Dashboard'
@@ -43,6 +43,14 @@ function Blocker() {
   }
 
   if (!wallet.ready) return <Notice title="Connecting…" />
+
+  if (!wallet.chainId && !IS_LOCAL_PAGE) {
+    return (
+      <Notice title="Not live yet">
+        <p>The EcoCredx contracts have not been deployed to a public network yet. Please check back soon.</p>
+      </Notice>
+    )
+  }
 
   if (!wallet.chainId) {
     return (
