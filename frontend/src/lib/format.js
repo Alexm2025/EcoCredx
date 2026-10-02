@@ -33,7 +33,11 @@ const FRIENDLY_ERRORS = {
 // Turns an ethers / wallet error into one readable sentence.
 export function errorMessage(err) {
   if (!err) return 'Something went wrong.'
-  if (err.code === 'ACTION_REJECTED' || err.code === 4001) return 'Transaction cancelled in wallet.'
+  if (err.code === 'ACTION_REJECTED' || err.code === 4001) return 'Cancelled in wallet.'
+  // MetaMask is still showing an earlier request that was never answered
+  if (err.code === -32002 || err.error?.code === -32002 || /already pending/i.test(err.message ?? '')) {
+    return 'MetaMask is already waiting for you. Click the MetaMask icon in your browser toolbar and approve or reject the open request.'
+  }
   if (err.code === 'INSUFFICIENT_FUNDS') return 'Not enough funds in your wallet to pay for this transaction.'
   if (err.revert?.name && FRIENDLY_ERRORS[err.revert.name]) return FRIENDLY_ERRORS[err.revert.name]
 
