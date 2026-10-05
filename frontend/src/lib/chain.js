@@ -21,6 +21,8 @@ export const DEPLOYMENTS = Object.fromEntries(
 export const ABIS = abis
 
 // rpcUrl: a public endpoint used to show the app read-only to visitors without a wallet
+// historyRpcUrls: endpoints that keep old event logs, tried in order for the ledger. Many public
+//   endpoints (and the RPC behind a wallet) drop old logs or refuse wide log queries.
 // currency: the coin that prices and gas are paid in on that chain
 export const CHAINS = {
   31337: { name: 'Hardhat Local', currency: 'ETH', testnet: true, explorer: null, rpcUrl: null },
@@ -30,6 +32,7 @@ export const CHAINS = {
     testnet: true,
     explorer: 'https://sepolia.etherscan.io',
     rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
+    historyRpcUrls: ['https://rpc.sepolia.ethpandaops.io', 'https://sepolia.gateway.tenderly.co'],
   },
   137: {
     name: 'Polygon',

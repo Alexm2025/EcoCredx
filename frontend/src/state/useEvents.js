@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { blockTimestamps, fetchEvents } from '../lib/events'
+import { blockTimestamps, fetchEvents, historyProvider } from '../lib/events'
 import { errorMessage } from '../lib/format'
 import { useApp } from './context'
 
@@ -11,7 +11,7 @@ const EMPTY = { status: 'loading', logs: [], error: null }
  */
 export function useEvents() {
   const { wallet, data } = useApp()
-  const { contracts, historyProvider, deployment, chainId } = wallet
+  const { contracts, readProvider, deployment, chainId } = wallet
   const { blockNumber } = data
   const ready = data.status === 'ready'
   const [state, setState] = useState({ chainId: null, ...EMPTY })
@@ -22,12 +22,13 @@ export function useEvents() {
 
     const load = async () => {
       try {
+        const provider = await historyProvider(chainId, deployment, readProvider)
         const [creditLogs, marketLogs] = await Promise.all([
-          fetchEvents(contracts.credit, historyProvider, chainId, deployment.deployBlock),
-          fetchEvents(contracts.market, historyProvider, chainId, deployment.deployBlock),
+          fetchEvents(contracts.credit, provider, chainId, deployment.deployBlock),
+          fetchEvents(contracts.market, provider, chainId, deployment.deployBlock),
         ])
         const logs = [...creditLogs, ...marketLogs].sort((a, b) => a.blockNumber - b.blockNumber || a.index - b.index)
-        const times = await blockTimestamps(historyProvider, chainId, logs.map((l) => l.blockNumber))
+        const times = await blockTimestamps(provider, chainId, logs.map((l) => l.blockNumber))
         if (cancelled) return
         setState({
           chainId,
@@ -52,7 +53,7 @@ export function useEvents() {
     return () => {
       cancelled = true
     }
-  }, [ready, contracts, historyProvider, deployment, chainId, blockNumber])
+  }, [ready, contracts, readProvider, deployment, chainId, blockNumber])
 
   return state.chainId === chainId ? state : EMPTY
 }
