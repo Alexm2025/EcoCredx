@@ -11,10 +11,12 @@ async function fetchNewEvents(contract, provider, key, fromBlock) {
   // a local chain that was restarted has a shorter history than the cache remembers
   if (!cached || latest < cached.nextBlock - 1) cached = { logs: [], nextBlock: fromBlock }
 
+  // the contract may be bound to a wallet; history is read through `provider`
+  const reader = contract.connect(provider)
   const fresh = []
   for (let start = cached.nextBlock; start <= latest; start += MAX_BLOCK_RANGE) {
     const end = Math.min(start + MAX_BLOCK_RANGE - 1, latest)
-    fresh.push(...(await contract.queryFilter('*', start, end)))
+    fresh.push(...(await reader.queryFilter('*', start, end)))
   }
 
   const updated = { logs: [...cached.logs, ...fresh.filter((log) => log.eventName)], nextBlock: latest + 1 }

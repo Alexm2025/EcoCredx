@@ -165,6 +165,15 @@ export function useWallet() {
   const deployment = chainId ? (DEPLOYMENTS[chainId] ?? null) : null
   const signer = session?.signer ?? null
 
+  // Event history is read from our own endpoint where there is one: the RPC behind a wallet
+  // often refuses log queries that span more than a few blocks.
+  const historyProvider = useMemo(() => {
+    if (reader?.chainId === chainId) return reader.provider
+    const rpcUrl = CHAINS[chainId]?.rpcUrl
+    if (!rpcUrl || !DEPLOYMENTS[chainId]) return readProvider
+    return new JsonRpcProvider(rpcUrl, chainId, { staticNetwork: true })
+  }, [reader, chainId, readProvider])
+
   const contracts = useMemo(() => {
     if (!deployment || !readProvider) return null
     const runner = signer ?? readProvider
@@ -182,6 +191,7 @@ export function useWallet() {
     chainId,
     currency: CHAINS[chainId]?.currency ?? 'ETH',
     readProvider,
+    historyProvider,
     deployment,
     contracts,
     demoAccounts: reader?.accounts ?? [],
